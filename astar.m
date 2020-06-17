@@ -1,20 +1,16 @@
-function full_path = astar(startPos, endPos)
+function full_path = astar(start, finish)
     m = load("logical_occupancy_map.mat");
     map_o = occupancyMap(m.map_logical_values, 2);
     inflate(map_o, 0.5);
     map = occupancyMatrix(map_o, 'ternary');
     
-    end_node = node;
-    end_node.position = endPos * 2;
-    end_node.g = 0;
-    end_node.h = 0;
-    end_node.f = 0;
+    start_pos = start * 2;
+    end_pos = finish * 2;
     
-    start_node = node;
-    start_node.position = startPos * 2;
-    start_node.g = 0;
-    start_node.h = (start_node.position(1) - end_node.position(1))^2 + (start_node.position(2) - end_node.position(2))^2;
-    start_node.f = start_node.g + start_node.h;
+    end_node = node(end_pos, [], 0, 0);
+    
+    distance = (start_pos(1) - end_pos(1))^2 + (start_pos(2) - end_pos(2))^2;
+    start_node = node(start * 2, [], 0, distance);
     
     open_list = [];
     closed_list = [];
@@ -26,7 +22,7 @@ function full_path = astar(startPos, endPos)
         current_index = 1;
         
         for i = 1:length(open_list)
-            if open_list(i).f < current_node.f
+            if open_list(i) < current_node
                 current_node = open_list(i);
                 current_index = i;
             end
@@ -35,11 +31,11 @@ function full_path = astar(startPos, endPos)
         open_list(current_index) = [];
         closed_list = [closed_list; current_node];
         
-        if isequal(current_node.position, end_node.position)
+        if current_node == end_node
             path = [];
             current = current_node;
             
-            while ~isequal(current.position, start_node.position)
+            while current ~= start_node
                 path = [path; current.position/2];
                 current = current.parent;
             end
@@ -50,8 +46,7 @@ function full_path = astar(startPos, endPos)
         positions = [[0, -1]; [0, 1]; [-1, 0]; [1, 0]; [-1, -1]; [-1, 1]; [1, -1]; [1, 1]];
         
         for i = 1:length(positions)
-            new_pos = positions(i, :);
-            node_position = [(current_node.position(1) + new_pos(1)) (current_node.position(2) + new_pos(2))];
+            node_position = current_node.position + positions(i, :);
             
             if node_position(2) > size(map, 1) || node_position(2) <= 0 || node_position(1) > size(map, 2) || node_position(1) <= 0
                 continue;
@@ -61,13 +56,12 @@ function full_path = astar(startPos, endPos)
                 continue;
             end
             
-            new_node = node;
-            new_node.parent = current_node;
-            new_node.position = node_position;
+            distance = sqrt((node_position(1) - end_node.position(1))^2 + (node_position(2) - end_node.position(2))^2);
+            new_node = node(node_position, current_node, current_node.g + 1, distance);
             
             in_closed = false;
             for k = 1:length(closed_list)
-                if isequal(new_node.position, closed_list(k).position)
+                if new_node == closed_list(k)
                     in_closed = true;
                 end
             end
@@ -76,14 +70,10 @@ function full_path = astar(startPos, endPos)
                 continue;
             end
             
-            new_node.g = current_node.g + 1;
-            new_node.h = sqrt((new_node.position(1) - end_node.position(1))^2 + (new_node.position(2) - end_node.position(2))^2);
-            new_node.f = new_node.g + new_node.h;
-            
             in_open = false;
             for l = 1:length(open_list)
                 open_node = open_list(l);
-                if isequal(new_node.position, open_node.position) && new_node.f >= open_node.f
+                if new_node == open_node && new_node >= open_node
                     in_open = true;
                 end
             end
