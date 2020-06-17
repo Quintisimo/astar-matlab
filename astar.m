@@ -1,23 +1,19 @@
+% Compute path using the A* algorithm
 function full_path = astar(start, finish)
     m = load("logical_occupancy_map.mat");
     map_o = occupancyMap(m.map_logical_values, 2);
+    % inflate map so that generated points are not close to walls
     inflate(map_o, 0.5);
     map = occupancyMatrix(map_o, 'ternary');
     
-    start_pos = start * 2;
-    end_pos = finish * 2;
-    
-    end_node = node(end_pos, [], 0, 0);
-    
-    distance = (start_pos(1) - end_pos(1))^2 + (start_pos(2) - end_pos(2))^2;
-    start_node = node(start * 2, [], 0, distance);
-    
-    open_list = [];
-    closed_list = [];
+    % double positions as map is double the size of inputs   
+    end_node = node(finish * 2, [], 0, 0);
+    start_node = node(start * 2, [], 0, pdist([start * 2; end_node.position], 'euclidean'));
     
     open_list = [start_node];
+    closed_list = [];
     
-    while length(open_list) > 0
+    while ~isempty(open_list)
         current_node = open_list(1);
         current_index = 1;
         
@@ -36,6 +32,7 @@ function full_path = astar(start, finish)
             current = current_node;
             
             while current ~= start_node
+                % divide by 2 as coverting back to original scale
                 path = [path; current.position/2];
                 current = current.parent;
             end
@@ -43,26 +40,37 @@ function full_path = astar(start, finish)
             return;
         end
         
-        positions = [[0, -1]; [0, 1]; [-1, 0]; [1, 0]; [-1, -1]; [-1, 1]; [1, -1]; [1, 1]];
+        % all position around a cell (down, up, left, right, bottom left,
+        % bottom right, top left, top right)
+        sorrounding_cells = [[0, -1]; [0, 1]; [-1, 0]; [1, 0];
+                            [-1, -1]; [-1, 1]; [1, -1]; [1, 1]];
         
-        for i = 1:length(positions)
-            node_position = current_node.position + positions(i, :);
+        for i = 1:length(sorrounding_cells)
+            node_position = current_node.position + sorrounding_cells(i, :);
             
-            if node_position(2) > size(map, 1) || node_position(2) <= 0 || node_position(1) > size(map, 2) || node_position(1) <= 0
+            % node is outside the map
+            horizontal = node_position(2) > size(map, 1) || node_position(2) <= 0;
+            vertical = node_position(1) > size(map, 2) || node_position(1) <= 0;
+            
+            if horizontal || vertical
                 continue;
             end
             
+            % node is on a wall
             if map(41 - node_position(2), node_position(1)) ~= 0
                 continue;
             end
             
-            distance = sqrt((node_position(1) - end_node.position(1))^2 + (node_position(2) - end_node.position(2))^2);
+            % compute distance to end node
+            distance = pdist([node_position; end_node.position], 'euclidean');
             new_node = node(node_position, current_node, current_node.g + 1, distance);
             
+            % check if node is in the closed list
             in_closed = false;
             for k = 1:length(closed_list)
                 if new_node == closed_list(k)
                     in_closed = true;
+                    break;
                 end
             end
             
@@ -70,11 +78,13 @@ function full_path = astar(start, finish)
                 continue;
             end
             
+            % check if node is in the open list and is more expensive
             in_open = false;
             for l = 1:length(open_list)
                 open_node = open_list(l);
                 if new_node == open_node && new_node >= open_node
                     in_open = true;
+                    break;
                 end
             end
             
